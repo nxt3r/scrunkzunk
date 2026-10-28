@@ -153,8 +153,13 @@ export default function App() {
           </div>
 
           {/* Treemap Section */}
-          <div className="border border-slate-700 rounded-xl overflow-hidden h-[350px] shadow-2xl">
-            <Treemap data={result.entries.filter(e => e.path.startsWith(currentPath))} rootPath={currentPath} onNodeClick={(path) => setCurrentPath(path)} />
+          <div className="border border-slate-700 rounded-xl overflow-hidden h-[400px] shadow-2xl">
+           <Treemap 
+  data={result.entries.filter(e => e.path.startsWith(currentPath))} 
+  junk_findings={result.junk_findings}
+  rootPath={currentPath} 
+  onNodeClick={(path) => setCurrentPath(path)} 
+/>
           </div>
           
           {/* Dead Code Section */}

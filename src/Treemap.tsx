@@ -6,26 +6,30 @@ interface ScanEntry {
   is_dir: boolean;
 }
 
+interface JunkFinding {
+  path: string;
+  tier: "safe" | "review" | "blocked";
+}
+
 interface TreemapProps {
   data: ScanEntry[];
+  junk_findings: JunkFinding[];
   rootPath: string;
   onNodeClick: (path: string) => void;
 }
 
-export function Treemap({ data, rootPath, onNodeClick }: TreemapProps) {
+export function Treemap({ data, junk_findings, rootPath, onNodeClick }: TreemapProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  // 1. Get only the immediate children of the current root
+  // 1. Get only the immediate children
   const immediateChildren = data.filter(item => {
     if (item.path === rootPath) return false;
     let relativePath = item.path;
-    if (relativePath.startsWith(rootPath)) {
-      relativePath = relativePath.slice(rootPath.length);
-    }
+    if (relativePath.startsWith(rootPath)) relativePath = relativePath.slice(rootPath.length);
     const parts = relativePath.split("\\").filter(Boolean);
     return parts.length === 1;
   }).map(item => {
-    // If it's a folder (size 0), calculate its total size by summing all files inside it
+    // 2. Roll up the folder sizes properly
     if (item.is_dir && item.size === 0) {
       const folderSize = data
         .filter(child => child.path.startsWith(item.path + "\\") && !child.is_dir)
@@ -35,7 +39,10 @@ export function Treemap({ data, rootPath, onNodeClick }: TreemapProps) {
     return item;
   });
 
-  if (immediateChildren.length === 0) {
+  // 3. Sort descending
+  const sortedChildren = [...immediateChildren].sort((a, b) => b.size - a.size);
+
+  if (sortedChildren.length === 0) {
     return (
       <div className="w-full h-full flex items-center justify-center text-slate-500 bg-slate-900/50 rounded-xl">
         Empty folder
@@ -43,30 +50,25 @@ export function Treemap({ data, rootPath, onNodeClick }: TreemapProps) {
     );
   }
 
-  // 2. Sort by size descending
-  const sortedChildren = [...immediateChildren].sort((a, b) => b.size - a.size);
-  
-  // 3. Calculate total size to determine percentages
-  const totalSize = sortedChildren.reduce((sum, item) => sum + item.size, 0) || 1;
-
-  // 4. Categorize items: "Big" items get proportion-based heights (min 150px), 
-  // small items get a fixed height so they don't disappear.
-  const threshold = totalSize * 0.05; // Items > 5% of total are "big"
-
   return (
     <div className="w-full h-full overflow-y-auto p-4 bg-slate-900/80">
-      {/* File Explorer Grid */}
-      <div className="flex flex-wrap gap-2 content-start">
+      {/* Uniform Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {sortedChildren.map((item) => {
-          const isBig = item.size > threshold;
-          const percentage = ((item.size / totalSize) * 100).toFixed(1);
-          
-          // Determine colors based on whether it's a folder (no extension) or file
-          // A better heuristic: if it has no dot in the last part, it's a folder.
           const isFolder = !item.path.split('\\').pop()?.includes('.');
           
+          // Check if this folder has a specific safety tier
+          const junkInfo = junk_findings.find(j => j.path === item.path);
+
+          // Determine colors
           let bgColor = isFolder ? "bg-slate-800 hover:bg-slate-700" : "bg-slate-800/50 hover:bg-slate-700/50";
           let borderColor = isFolder ? "border-slate-600" : "border-slate-700";
+          
+          if (junkInfo) {
+            if (junkInfo.tier === "safe") { bgColor = "bg-emerald-900/40 hover:bg-emerald-800/60"; borderColor = "border-emerald-700/50"; }
+            if (junkInfo.tier === "review") { bgColor = "bg-amber-900/40 hover:bg-amber-800/60"; borderColor = "border-amber-700/50"; }
+            if (junkInfo.tier === "blocked") { bgColor = "bg-red-900/40 hover:bg-red-800/60"; borderColor = "border-red-700/50"; }
+          }
 
           return (
             <div
@@ -77,26 +79,23 @@ export function Treemap({ data, rootPath, onNodeClick }: TreemapProps) {
               className={`
                 ${bgColor} ${borderColor} border rounded-xl p-4 cursor-pointer 
                 transition-all duration-200 relative overflow-hidden flex flex-col justify-between
-                ${isBig ? 'w-full md:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.5rem)] min-h-[140px]' : 'w-[calc(25%-0.5rem)] sm:w-[calc(16.666%-0.5rem)] lg:w-[calc(12.5%-0.5rem)] min-h-[80px]'}
+                h-[120px] w-full
                 ${hoveredId === item.path ? 'ring-2 ring-indigo-500 shadow-xl scale-[1.02] z-10' : 'shadow-sm'}
               `}
             >
-              <div className="flex items-center gap-2 z-10 relative">
-                <span className="text-2xl">{isFolder ? '📁' : '📄'}</span>
-                <span className="font-semibold text-slate-200 text-sm truncate" title={item.path}>
+              <div className="flex items-start gap-2 z-10 relative">
+                <span className="text-2xl mt-0.5">
+                  {junkInfo?.tier === "safe" ? '🟢' : junkInfo?.tier === "review" ? '🟡' : junkInfo?.tier === "blocked" ? '🔴' : (isFolder ? '📁' : '📄')}
+                </span>
+                <span className="font-semibold text-slate-200 text-sm break-all line-clamp-2" title={item.path}>
                   {item.path.split('\\').pop()}
                 </span>
               </div>
               
-              <div className="mt-4 z-10 relative">
+              <div className="z-10 relative">
                 <div className="text-xs font-mono text-slate-400">
                   {(item.size / 1024 / 1024).toFixed(1)} MB
                 </div>
-                {isBig && (
-                  <div className="w-full bg-slate-900/50 rounded-full h-1.5 mt-2 overflow-hidden">
-                    <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${percentage}%` }}></div>
-                  </div>
-                )}
               </div>
             </div>
           );
