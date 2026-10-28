@@ -21,9 +21,14 @@ export default function App() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Dead Code States
+  const [deadCode, setDeadCode] = useState<{path: string, finding_type: string}[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
+
   async function handleScan(pathToScan: string) {
     setScanning(true);
     setSelected([]);
+    setDeadCode([]); // clear dead code on new scan
     try {
       const r = await invoke<ScanResult>("scan_disk", { path: pathToScan });
       setResult(r);
@@ -32,6 +37,20 @@ export default function App() {
       alert("Scan failed: " + e);
     } finally {
       setScanning(false);
+    }
+  }
+
+  async function handleAnalyze() {
+    setAnalyzing(true);
+    setDeadCode([]);
+    try {
+      const res = await invoke<{path: string, finding_type: string}[]>("find_dead_code", { projectPath: currentPath });
+      setDeadCode(res);
+      if (res.length === 0) alert("No dead code found (or not a Node project).");
+    } catch (e) {
+      alert("Analysis failed: " + e);
+    } finally {
+      setAnalyzing(false);
     }
   }
 
@@ -95,7 +114,7 @@ export default function App() {
           </div>
 
           {/* Action Bar */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <button 
               onClick={() => setShowConfirm(true)} 
               disabled={selected.length === 0} 
@@ -115,6 +134,14 @@ export default function App() {
               Select All Safe
             </button>
 
+            <button 
+              onClick={handleAnalyze} 
+              disabled={analyzing}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold text-sm transition-all shadow-lg shadow-indigo-900/20"
+            >
+              {analyzing ? "Analyzing..." : "Find Dead Code (Knip)"}
+            </button>
+
             {currentPath !== "D:\\projects" && (
               <button 
                 onClick={() => setCurrentPath("D:\\projects")} 
@@ -130,8 +157,25 @@ export default function App() {
             <Treemap data={result.entries.filter(e => e.path.startsWith(currentPath))} rootPath={currentPath} onNodeClick={(path) => setCurrentPath(path)} />
           </div>
           
+          {/* Dead Code Section */}
+          {deadCode.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-xl font-bold mb-4 text-indigo-400">Unused Files Found ({deadCode.length})</h3>
+              <div className="border border-indigo-700/50 rounded-xl overflow-hidden bg-indigo-900/10">
+                <ul className="divide-y divide-indigo-700/30">
+                  {deadCode.map((item, i) => (
+                    <li key={i} className="p-4 flex justify-between items-center text-sm font-mono text-indigo-200">
+                      <span>{item.path}</span>
+                      <span className="text-xs bg-indigo-500/20 px-2 py-1 rounded text-indigo-300">{item.finding_type}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
           {/* Junk Table */}
-          <div>
+          <div className="mt-8">
             <h3 className="text-xl font-bold mb-4">Actionable Junk</h3>
             <div className="border border-slate-700 rounded-xl overflow-hidden bg-slate-800/30">
               <table className="w-full text-left text-sm">

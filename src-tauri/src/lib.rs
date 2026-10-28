@@ -138,13 +138,88 @@ fn delete_items(paths: Vec<String>) -> Result<DeleteResult, String> {
     })
 }
 
+#[derive(Serialize)]
+pub struct DeadCodeFinding {
+    path: String,
+    finding_type: String, // "file", "export", "dependency"
+}
+
+#[tauri::command]
+fn find_dead_code(project_path: String) -> Result<Vec<DeadCodeFinding>, String> {
+    let path = std::path::Path::new(&project_path);
+    
+    if !path.join("package.json").exists() {
+        return Ok(Vec::new());
+    }
+
+    let output = std::process::Command::new("cmd")
+        .args(&["/C", "npx", "--yes", "knip@5", "--reporter", "json"])
+        .current_dir(path)
+        .output()
+        .map_err(|e| format!("Failed to run knip: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    
+    if stdout.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let json: serde_json::Value = serde_json::from_str(&stdout)
+        .map_err(|_| format!("Failed to parse knip output. Raw output: {}", stdout))?;
+
+    let mut findings = Vec::new();
+
+    // 1. Get unused files
+    if let Some(files) = json.get("files").and_then(|v| v.as_array()) {
+        for file in files {
+            if let Some(file_str) = file.as_str() {
+                findings.push(DeadCodeFinding {
+                    path: file_str.to_string(),
+                    finding_type: "Unused File".to_string(),
+                });
+            }
+        }
+    }
+
+    // 2. Get unused dependencies from issues
+    if let Some(issues) = json.get("issues").and_then(|v| v.as_array()) {
+        for issue in issues {
+            // Unused dependencies
+            if let Some(deps) = issue.get("dependencies").and_then(|v| v.as_array()) {
+                for dep in deps {
+                    if let Some(name) = dep.get("name").and_then(|v| v.as_str()) {
+                        findings.push(DeadCodeFinding {
+                            path: format!("Dependency: {}", name),
+                            finding_type: "Unused Dependency".to_string(),
+                        });
+                    }
+                }
+            }
+            // Unused dev dependencies
+            if let Some(dev_deps) = issue.get("devDependencies").and_then(|v| v.as_array()) {
+                for dep in dev_deps {
+                    if let Some(name) = dep.get("name").and_then(|v| v.as_str()) {
+                        findings.push(DeadCodeFinding {
+                            path: format!("DevDependency: {}", name),
+                            finding_type: "Unused Dependency".to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(findings)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             scan_disk,
-            delete_items
+            delete_items,
+            find_dead_code
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
