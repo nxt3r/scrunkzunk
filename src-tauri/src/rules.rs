@@ -30,7 +30,7 @@ pub fn classify_path(path: &str) -> Option<(SafetyTier, String)> {
     if lower.ends_with("\\.venv") || lower.contains("\\.venv\\") {
         return Some((SafetyTier::Review, "Python virtual environment".to_string()));
     }
-    
+
     if lower.ends_with("\\.git") || lower.contains("\\.git\\") {
         return Some((SafetyTier::Blocked, "Git data".to_string()));
     }

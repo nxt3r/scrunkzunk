@@ -47,19 +47,25 @@ fn scan_disk(path: String) -> Result<ScanResult, String> {
     for entry in WalkDir::new(root).follow_links(true).into_iter() {
         let entry = match entry {
             Ok(e) => e,
-            Err(e) => { 
-                skipped_errors.push(e.to_string()); 
-                continue; 
+            Err(e) => {
+                skipped_errors.push(e.to_string());
+                continue;
             }
         };
 
-        if entry.path() == root { continue; }
+        if entry.path() == root {
+            continue;
+        }
 
         let meta = match entry.metadata() {
             Ok(m) => m,
-            Err(e) => { 
-                skipped_errors.push(format!("Metadata error on {}: {}", entry.path().display(), e)); 
-                continue; 
+            Err(e) => {
+                skipped_errors.push(format!(
+                    "Metadata error on {}: {}",
+                    entry.path().display(),
+                    e
+                ));
+                continue;
             }
         };
 
@@ -82,10 +88,16 @@ fn scan_disk(path: String) -> Result<ScanResult, String> {
             let group_path = if is_dir {
                 path_str.clone()
             } else {
-                entry.path().parent().unwrap_or(entry.path()).to_string_lossy().to_string()
+                entry
+                    .path()
+                    .parent()
+                    .unwrap_or(entry.path())
+                    .to_string_lossy()
+                    .to_string()
             };
 
-            junk_map.entry(group_path.clone())
+            junk_map
+                .entry(group_path.clone())
                 .and_modify(|f| f.size += size)
                 .or_insert(JunkFinding {
                     path: group_path,
@@ -147,7 +159,7 @@ pub struct DeadCodeFinding {
 #[tauri::command]
 fn find_dead_code(project_path: String) -> Result<Vec<DeadCodeFinding>, String> {
     let path = std::path::Path::new(&project_path);
-    
+
     if !path.join("package.json").exists() {
         return Ok(Vec::new());
     }
@@ -159,7 +171,7 @@ fn find_dead_code(project_path: String) -> Result<Vec<DeadCodeFinding>, String> 
         .map_err(|e| format!("Failed to run knip: {}", e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     if stdout.trim().is_empty() {
         return Ok(Vec::new());
     }
@@ -215,6 +227,7 @@ fn find_dead_code(project_path: String) -> Result<Vec<DeadCodeFinding>, String> 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             scan_disk,
