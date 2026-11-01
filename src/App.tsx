@@ -19,7 +19,7 @@ export default function App() {
   const [scanning, setScanning] = useState(false);
   
   // Navigation State
-  const [history, setHistory] = useState<string[]>(["D:\\projects"]);
+  const [history, setHistory] = useState<string[]>(["F:\\Coding+Project+Work+hehe"]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const currentPath = history[historyIndex];
 
@@ -62,7 +62,7 @@ export default function App() {
   function goBack() { if (historyIndex > 0) setHistoryIndex(historyIndex - 1); }
   function goForward() { if (historyIndex < history.length - 1) setHistoryIndex(historyIndex + 1); }
   function goUp() {
-    if (currentPath === "D:\\projects") return;
+    if (currentPath === "F:\\Coding+Project+Work+hehe") return;
     const parts = currentPath.split("\\");
     parts.pop();
     const parent = parts.join("\\");
@@ -152,7 +152,7 @@ export default function App() {
       <div className="flex items-center gap-1 px-2 py-1 bg-[#2d2d2d] border-b border-[#1e1e1e] text-xs select-none relative z-50">
         
         <button 
-          onClick={() => navigateTo("D:\\projects")}
+          onClick={() => navigateTo("F:\\Coding+Project+Work+hehe")}
           className="hover:bg-[#3d3d3d] px-3 py-1.5 rounded font-bold text-white"
         >
           Home
@@ -201,7 +201,7 @@ export default function App() {
           <button onClick={goForward} disabled={historyIndex === history.length - 1} className="p-1.5 rounded hover:bg-[#3d3d3d] disabled:opacity-30 disabled:hover:bg-transparent">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </button>
-          <button onClick={goUp} disabled={currentPath === "D:\\projects"} className="p-1.5 rounded hover:bg-[#3d3d3d] disabled:opacity-30 disabled:hover:bg-transparent">
+          <button onClick={goUp} disabled={currentPath === "F:\\Coding+Project+Work+hehe"} className="p-1.5 rounded hover:bg-[#3d3d3d] disabled:opacity-30 disabled:hover:bg-transparent">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
           </button>
         </div>
